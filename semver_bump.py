@@ -1,41 +1,33 @@
 #!/usr/bin/env python3
-"""semver_bump - Bump semantic versions (major.minor.patch)."""
+"""Semantic version bumper and comparator."""
 import sys, re
 
 def parse(v):
     v = v.lstrip('v')
     m = re.match(r'(\d+)\.(\d+)\.(\d+)(?:-(.+))?', v)
-    if not m: return None
-    return [int(m.group(1)), int(m.group(2)), int(m.group(3)), m.group(4) or '']
+    if not m: raise ValueError(f"Invalid semver: {v}")
+    return int(m[1]), int(m[2]), int(m[3]), m[4]
 
-def bump(ver, part='patch', pre=None):
-    v = parse(ver)
-    if not v: print(f"Invalid: {ver}"); sys.exit(1)
-    if part == 'major': v[0]+=1; v[1]=0; v[2]=0
-    elif part == 'minor': v[1]+=1; v[2]=0
-    elif part == 'patch': v[2]+=1
-    result = f"{v[0]}.{v[1]}.{v[2]}"
-    if pre: result += f"-{pre}"
-    return result
+def bump(v, part):
+    ma, mi, pa, pre = parse(v)
+    if part == 'major': return f"{ma+1}.0.0"
+    if part == 'minor': return f"{ma}.{mi+1}.0"
+    if part == 'patch': return f"{ma}.{mi}.{pa+1}"
+    raise ValueError(f"Unknown part: {part}")
 
 def compare(a, b):
-    va, vb = parse(a), parse(b)
-    for i in range(3):
-        if va[i] != vb[i]: return 1 if va[i] > vb[i] else -1
+    pa, pb = parse(a)[:3], parse(b)[:3]
+    if pa > pb: return 1
+    if pa < pb: return -1
     return 0
 
-def main():
-    args = sys.argv[1:]
-    if not args or '-h' in args:
-        print("Usage:\n  semver_bump.py 1.2.3 patch|minor|major [--pre alpha]\n  semver_bump.py compare 1.2.3 1.3.0"); return
-    if args[0] == 'compare':
-        r = compare(args[1], args[2])
-        sym = '=' if r==0 else ('>' if r>0 else '<')
-        print(f"{args[1]} {sym} {args[2]}")
-    else:
-        ver = args[0]
-        part = args[1] if len(args)>1 else 'patch'
-        pre = args[args.index('--pre')+1] if '--pre' in args else None
-        print(bump(ver, part, pre))
-
-if __name__ == '__main__': main()
+if __name__ == '__main__':
+    if len(sys.argv) < 3: print("Usage: semver_bump.py <bump|compare> <version> [part|version2]"); sys.exit(1)
+    cmd = sys.argv[1]
+    if cmd == 'bump':
+        part = sys.argv[3] if len(sys.argv) > 3 else 'patch'
+        print(bump(sys.argv[2], part))
+    elif cmd == 'compare':
+        r = compare(sys.argv[2], sys.argv[3])
+        sym = '=' if r == 0 else ('>' if r > 0 else '<')
+        print(f"{sys.argv[2]} {sym} {sys.argv[3]}")
